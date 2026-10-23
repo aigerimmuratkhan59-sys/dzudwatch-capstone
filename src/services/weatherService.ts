@@ -1,6 +1,6 @@
 const weatherCache = new Map();
 const CACHE_DURATION = 15 * 60 * 1e3;
-export function getWeatherDescription(code) {
+export function getWeatherDescription(code: number) {
 	switch (code) {
 		case 0: return "Цэлмэг хүйтэн";
 		case 1: return "Үүл багатай";
@@ -29,7 +29,7 @@ export function getWeatherDescription(code) {
 		default: return "Хүйтэн жавартай";
 	}
 }
-export function getDayNameMn(dateStr) {
+export function getDayNameMn(dateStr: string) {
 	const date = new Date(dateStr);
 	const days = [
 		"Ням",
@@ -42,7 +42,7 @@ export function getDayNameMn(dateStr) {
 	];
 	return days[date.getDay()];
 }
-export async function fetchAimagWeather(lat, lng, aimagId) {
+export async function fetchAimagWeather(lat: number, lng: number, aimagId: string) {
 	const cached = weatherCache.get(aimagId);
 	const now = Date.now();
 	if (cached && now - cached.timestamp < CACHE_DURATION) {
@@ -109,108 +109,8 @@ export async function fetchAimagWeather(lat, lng, aimagId) {
 			forecast
 		};
 	} catch (error) {
-		console.warn(`Weather fetch failed for ${aimagId}, using fallback estimates:`, error);
-		// Reliable meteorological baseline fallback
-		const fallbackCurrent = {
-			temperature: -24,
-			feelsLike: -31,
-			humidity: 78,
-			windSpeed: 8,
-			windDirection: 310,
-			snowfall: 1.2,
-			precipitation: .5,
-			weatherCode: 71,
-			weatherText: "Хүйтэн, ялимгүй цастай",
-			isExtremeCold: true,
-			isBlizzardRisk: false,
-			updatedAt: new Date().toLocaleTimeString("mn-MN", {
-				hour: "2-digit",
-				minute: "2-digit"
-			})
-		};
-		const fallbackForecast = [
-			{
-				date: "Өнөөдөр",
-				dayName: "Өнөөдөр",
-				tempMax: -18,
-				tempMin: -28,
-				snowfallSum: 1.5,
-				precipProbMax: 40,
-				windSpeedMax: 9,
-				weatherCode: 71,
-				weatherText: "Цастай"
-			},
-			{
-				date: "Маргааш",
-				dayName: "Маргааш",
-				tempMax: -20,
-				tempMin: -31,
-				snowfallSum: 2.8,
-				precipProbMax: 70,
-				windSpeedMax: 12,
-				weatherCode: 85,
-				weatherText: "Цасан шуурга"
-			},
-			{
-				date: "+2 хоног",
-				dayName: "Нөгөөдөр",
-				tempMax: -23,
-				tempMin: -34,
-				snowfallSum: .5,
-				precipProbMax: 20,
-				windSpeedMax: 8,
-				weatherCode: 1,
-				weatherText: "Үүл багатай"
-			},
-			{
-				date: "+3 хоног",
-				dayName: "3 дахь өдөр",
-				tempMax: -22,
-				tempMin: -33,
-				snowfallSum: 0,
-				precipProbMax: 10,
-				windSpeedMax: 7,
-				weatherCode: 0,
-				weatherText: "Цэлмэг хүйтэн"
-			},
-			{
-				date: "+4 хоног",
-				dayName: "4 дэх өдөр",
-				tempMax: -19,
-				tempMin: -30,
-				snowfallSum: 1,
-				precipProbMax: 35,
-				windSpeedMax: 9,
-				weatherCode: 71,
-				weatherText: "Ялимгүй цас"
-			},
-			{
-				date: "+5 хоног",
-				dayName: "5 дахь өдөр",
-				tempMax: -17,
-				tempMin: -27,
-				snowfallSum: .2,
-				precipProbMax: 15,
-				windSpeedMax: 6,
-				weatherCode: 2,
-				weatherText: "Үүлшинэ"
-			},
-			{
-				date: "+6 хоног",
-				dayName: "6 дахь өдөр",
-				tempMax: -16,
-				tempMin: -26,
-				snowfallSum: 0,
-				precipProbMax: 5,
-				windSpeedMax: 7,
-				weatherCode: 0,
-				weatherText: "Цэлмэг хүйтэн"
-			}
-		];
-		return {
-			current: fallbackCurrent,
-			forecast: fallbackForecast
-		};
+		console.warn(`Weather fetch failed for ${aimagId}:`, error);
+		throw error;
 	}
 }
 

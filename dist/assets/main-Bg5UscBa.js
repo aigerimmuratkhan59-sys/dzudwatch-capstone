@@ -1,0 +1,7 @@
+var e=`import { createRoot } from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+createRoot(document.getElementById('root')!).render(<App />);
+
+//# sourceMappingURL=data:application/json;base64,eyJtYXBwaW5ncyI6IkFBQUEsU0FBUSxrQkFBaUI7QUFDekIsT0FBTyxTQUFTO0FBQ2hCLE9BQU87OztBQUVQLFdBQVcsU0FBUyxlQUFlLE1BQU0sQ0FBRSxDQUFDLENBQUMsT0FBTyx3QkFBQyxLQUFELENBQU07Ozs7UUFBQyIsIm5hbWVzIjpbXSwic291cmNlcyI6WyJtYWluLnRzeCJdLCJ2ZXJzaW9uIjozLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQge2NyZWF0ZVJvb3R9IGZyb20gJ3JlYWN0LWRvbS9jbGllbnQnO1xuaW1wb3J0IEFwcCBmcm9tICcuL0FwcC50c3gnO1xuaW1wb3J0ICcuL2luZGV4LmNzcyc7XG5cbmNyZWF0ZVJvb3QoZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3Jvb3QnKSEpLnJlbmRlcig8QXBwIC8+KTtcbiJdfQ==`;export{e as default};
