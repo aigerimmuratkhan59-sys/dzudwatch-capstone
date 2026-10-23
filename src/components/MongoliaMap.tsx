@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { AlertTriangle, Layers, RotateCcw, Search, Sparkles, Wind } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { AlertTriangle, Layers, RotateCcw, Search, Sparkles } from 'lucide-react';
 import { AIMAGS_DATA } from '../data/aimagData';
 
 type Aimag = (typeof AIMAGS_DATA)[number];
@@ -13,9 +15,63 @@ type Props = {
   isRefreshing?: boolean;
 };
 
+// Аймгийн төвүүдийн бодит координат [өргөрөг, уртраг], аймгийн нэрээр
+const AIMAG_COORDS: Record<string, [number, number]> = {
+  'Архангай': [47.47, 101.45],
+  'Баян-Өлгий': [48.97, 89.96],
+  'Баянхонгор': [46.19, 100.72],
+  'Булган': [48.81, 103.53],
+  'Говь-Алтай': [46.37, 96.25],
+  'Говьсүмбэр': [46.36, 108.36],
+  'Дархан-Уул': [49.49, 105.92],
+  'Дорноговь': [44.89, 110.12],
+  'Дорнод': [48.07, 114.53],
+  'Дундговь': [45.76, 106.27],
+  'Завхан': [47.74, 96.84],
+  'Орхон': [49.03, 104.04],
+  'Өвөрхангай': [46.26, 102.78],
+  'Өмнөговь': [43.57, 104.43],
+  'Сүхбаатар': [46.68, 113.28],
+  'Сэлэнгэ': [50.23, 106.21],
+  'Төв': [47.71, 106.95],
+  'Увс': [49.98, 92.07],
+  'Ховд': [48.01, 91.64],
+  'Хөвсгөл': [49.64, 100.16],
+  'Хэнтий': [47.31, 110.65],
+  'Улаанбаатар': [47.92, 106.92],
+  'Улаанбаатар хот': [47.92, 106.92],
+};
+
+const LEVEL_COLORS: Record<string, string> = {
+  critical: '#ef4444',
+  high: '#f97316',
+  moderate: '#f59e0b',
+};
+
+const MONGOLIA_BOUNDS: L.LatLngBoundsExpression = [
+  [41.4, 87.5],
+  [52.3, 120.2],
+];
+
+const TILES = {
+  light: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  },
+};
+
 export const MongoliaMap = ({ selectedAimag, onSelectAimag, mode, onModeChange, onRefresh, isRefreshing = false }: Props) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [mapTheme, setMapTheme] = useState('light');
+  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light');
+
+  const mapElRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const tileRef = useRef<L.TileLayer | null>(null);
+  const markersRef = useRef<L.LayerGroup | null>(null);
 
   const filteredAimags = AIMAGS_DATA.filter((aimag) => {
     const q = searchQuery.toLowerCase();
@@ -28,6 +84,80 @@ export const MongoliaMap = ({ selectedAimag, onSelectAimag, mode, onModeChange, 
     if (mode === 'livestock') return `${(aimag.livestock.total / 1_000_000).toFixed(1)} сая`;
     return `${aimag.dzudRisk.score} оноо`;
   };
+
+  // Газрын зургийг нэг удаа үүсгэх
+  useEffect(() => {
+    if (!mapElRef.current || mapRef.current) return;
+    const map = L.map(mapElRef.current, {
+      scrollWheelZoom: false,
+      minZoom: 4,
+      maxBounds: [
+        [36, 80],
+        [58, 130],
+      ],
+    });
+    map.fitBounds(MONGOLIA_BOUNDS);
+    markersRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+    setTimeout(() => map.invalidateSize(), 100);
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      tileRef.current = null;
+      markersRef.current = null;
+    };
+  }, []);
+
+  // Газрын зургийн дэвсгэр (цайвар / харанхуй)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (tileRef.current) map.removeLayer(tileRef.current);
+    const t = TILES[mapTheme];
+    tileRef.current = L.tileLayer(t.url, { attribution: t.attribution, maxZoom: 10 }).addTo(map);
+    tileRef.current.bringToBack();
+  }, [mapTheme]);
+
+  // Аймаг бүрийн тэмдэглэгээ
+  useEffect(() => {
+    const group = markersRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    AIMAGS_DATA.forEach((aimag) => {
+      const coords = AIMAG_COORDS[aimag.nameMn];
+      if (!coords) return;
+      const isSelected = selectedAimag?.id === aimag.id;
+      const color = LEVEL_COLORS[aimag.dzudRisk.level] ?? '#10b981';
+      const bg = isSelected ? '#fbbf24' : mapTheme === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(15,23,42,0.92)';
+      const fg = isSelected ? '#020617' : mapTheme === 'light' ? '#1e293b' : '#e2e8f0';
+
+      const html = `
+        <div style="transform:translate(-50%,-50%);display:inline-block;white-space:nowrap;cursor:pointer;
+          background:${bg};color:${fg};border:1px solid #94a3b8;border-left:4px solid ${color};
+          border-radius:8px;padding:2px 6px;font:600 10px/1.25 system-ui,sans-serif;
+          box-shadow:0 2px 6px rgba(0,0,0,0.35);">
+          <div>${aimag.nameMn}</div>
+          <div style="font-size:9px;opacity:.75;font-weight:500">${getMapValue(aimag)}</div>
+        </div>`;
+
+      const marker = L.marker(coords, {
+        icon: L.divIcon({ html, className: '', iconSize: [0, 0] }),
+        zIndexOffset: isSelected ? 1000 : 0,
+      });
+      marker.on('click', () => onSelectAimag(aimag));
+      marker.addTo(group);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAimag, mode, mapTheme, onSelectAimag]);
+
+  // Сонгосон аймаг руу төвлөрүүлэх
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedAimag) return;
+    const coords = AIMAG_COORDS[selectedAimag.nameMn];
+    if (coords) map.flyTo(coords, Math.max(map.getZoom(), 6), { duration: 0.6 });
+  }, [selectedAimag]);
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl">
@@ -56,26 +186,10 @@ export const MongoliaMap = ({ selectedAimag, onSelectAimag, mode, onModeChange, 
 
       <div className="p-4">
         <div className="grid gap-4 md:grid-cols-[1.5fr_1fr]">
-          <div className={`relative h-[320px] rounded-2xl border border-slate-800 overflow-hidden ${mapTheme === 'light' ? 'bg-slate-200' : 'bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.25),transparent_20%),linear-gradient(rgba(15,23,42,0.8),rgba(15,23,42,0.95))]'}`}>
-            <div className={`absolute inset-0 ${mapTheme === 'light' ? 'opacity-50' : 'opacity-30'}`} style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.18) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-            {AIMAGS_DATA.map((aimag, index) => {
-              const x = 10 + ((index * 13) % 70);
-              const y = 20 + ((index * 17) % 60);
-              const isSelected = selectedAimag?.id === aimag.id;
-              return (
-                <button
-                  key={aimag.id}
-                  onClick={() => onSelectAimag(aimag)}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-lg border px-2 py-1 text-[10px] font-semibold ${isSelected ? 'bg-amber-400 text-slate-950 border-amber-200' : mapTheme === 'light' ? 'bg-white/90 text-slate-800 border-slate-400' : 'bg-slate-900/90 text-slate-200 border-slate-700'} shadow-lg`}
-                  style={{ left: `${x}%`, top: `${y}%` }}
-                >
-                  <span className="block">{aimag.nameMn}</span>
-                  <span className="block text-[9px] opacity-75">{getMapValue(aimag)}</span>
-                </button>
-              );
-            })}
+          <div className="relative h-[420px] rounded-2xl border border-slate-800 overflow-hidden z-0">
+            <div ref={mapElRef} className="absolute inset-0" />
             {selectedAimag && (
-              <div className="absolute bottom-4 left-4 rounded-2xl border border-blue-500/30 bg-slate-950/80 px-3 py-2 text-sm text-slate-200">
+              <div className="absolute bottom-4 left-4 z-[1000] rounded-2xl border border-blue-500/30 bg-slate-950/85 px-3 py-2 text-sm text-slate-200">
                 <div className="text-xs text-blue-300">Сонгосон аймаг</div>
                 <div className="font-bold text-white">{selectedAimag.nameMn}</div>
               </div>
